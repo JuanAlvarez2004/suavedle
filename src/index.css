@@ -1,1 +1,32 @@
-@import "tailwindcss"
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'Array-Regular';
+  src: url('/fonts/Array-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Array-Bold';
+  src: url('/fonts/Array-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'DotGothic-Regular';
+  src: url('/fonts/DotGothic16-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+  font-style: normal;
+}
+
+@theme {
+  --font-array: 'Array-Regular', system-ui, sans-serif;
+  --font-array-bold: 'Array-Bold', system-ui, sans-serif;
+  --font-dot-gothic: 'DotGothic-Regular', system-ui;
+  /* --color-own-black: #1A191C; */
+}
