@@ -1,4 +1,5 @@
 import gsap from "gsap"
+import { SplitText } from "gsap/SplitText"
 import { useEffect, useRef, useState } from "react"
 
 const WORDS = [
@@ -130,18 +131,23 @@ interface data {
 }
 
 interface gameState {
-  currTry: number,
-  currGuess: string[],
+  currTry: number
+  currGuess: string[]
 }
+
+gsap.registerPlugin(SplitText)
 
 function App() {
   const [data, setData] = useState<data | null>(null)
   const [board, setBoard] = useState<string[][]>([])
   const [gameState, setGameState] = useState<gameState>({
     currTry: 0,
-    currGuess: [],
+    currGuess: []
   })
   const inputRefs = useRef<(HTMLInputElement | null)[][]>([])
+  const titleRef = useRef<HTMLHeadingElement | null>(null)
+  const splitTitleRef = useRef<SplitText | null>(null)
+  const isTitleAnimatingRef = useRef(false)
 
   useEffect(() => {
     const randomWord = WORDS[Math.floor(Math.random() * WORDS.length)]
@@ -152,13 +158,29 @@ function App() {
       length: wordLength
     })
 
-    setBoard(Array.from({ length: CONFIG.tries }, () => Array(wordLength).fill("")))
+    setBoard(
+      Array.from({ length: CONFIG.tries }, () => Array(wordLength).fill(""))
+    )
     setGameState({
       currTry: 0,
-      currGuess: Array(wordLength).fill(""),
+      currGuess: Array(wordLength).fill("")
     })
 
-    inputRefs.current = Array.from({ length: CONFIG.tries }, () => Array(wordLength).fill(null))
+    inputRefs.current = Array.from({ length: CONFIG.tries }, () =>
+      Array(wordLength).fill(null)
+    )
+
+    if (!titleRef.current) return
+
+    splitTitleRef.current = new SplitText(titleRef.current, { type: "chars" })
+
+    return () => {
+      if (splitTitleRef.current) {
+        splitTitleRef.current.revert()
+        splitTitleRef.current = null
+      }
+      isTitleAnimatingRef.current = false
+    }
   }, [])
 
   const focusCell = (row: number, col: number) => {
@@ -167,13 +189,13 @@ function App() {
 
   const updateRowGuess = (row: number, rowValues: string[]) => {
     if (row === gameState.currTry) {
-      setGameState(prev => ({ ...prev, currGuess: rowValues }))
+      setGameState((prev) => ({ ...prev, currGuess: rowValues }))
     }
   }
 
   const setCellValue = (row: number, col: number, value: string) => {
-    setBoard(prev => {
-      const next = prev.map(r => [...r])
+    setBoard((prev) => {
+      const next = prev.map((r) => [...r])
       if (!next[row]) return prev
 
       next[row][col] = value
@@ -189,7 +211,10 @@ function App() {
   ) => {
     if (!data || row !== gameState.currTry) return
 
-    const char = e.target.value.slice(-1).toLowerCase().replace(/[^a-z]/g, "")
+    const char = e.target.value
+      .slice(-1)
+      .toLowerCase()
+      .replace(/[^a-z]/g, "")
     setCellValue(row, col, char)
 
     if (char && col < data.length - 1) {
@@ -210,16 +235,40 @@ function App() {
 
     for (let i = 0; i < data.length; i++) {
       if (gameState.currGuess[i] === data.word[i]) {
-        gsap.to(inputRefs.current[gameState.currTry][i], { backgroundColor: "green", color: "white", duration: 0.5 })
+        gsap.to(inputRefs.current[gameState.currTry][i], {
+          backgroundColor: "purple",
+          color: "white",
+          duration: 0.5
+        })
       } else if (data.word.includes(gameState.currGuess[i])) {
-        gsap.to(inputRefs.current[gameState.currTry][i], { backgroundColor: "yellow", color: "white", duration: 0.5 })
+        gsap.to(inputRefs.current[gameState.currTry][i], {
+          backgroundColor: "yellow",
+          color: "black",
+          duration: 0.5
+        })
       } else {
-        gsap.to(inputRefs.current[gameState.currTry][i], { backgroundColor: "gray", color: "white", duration: 0.5 })
+        gsap.to(inputRefs.current[gameState.currTry][i], {
+          backgroundColor: "black",
+          color: "white",
+          duration: 0.5
+        })
       }
     }
 
-    
-    setGameState(prev => ({ ...prev, currTry: prev.currTry + 1, currGuess: Array(data.length).fill("") }))
+    if (gameState.currGuess.join("") === data.word) {
+      document.querySelector(".dialog-congrats")?.classList.remove("invisible")
+      setGameState((prev) => ({
+        ...prev,
+        currTry: CONFIG.tries
+      }))
+      return
+    }
+
+    setGameState((prev) => ({
+      ...prev,
+      currTry: prev.currTry + 1,
+      currGuess: Array(data.length).fill("")
+    }))
   }
 
   const handleKeyDown = (
@@ -243,24 +292,42 @@ function App() {
         focusCell(row, col - 1)
       }
       return
-    } 
-    
-    else if (e.key === "ArrowLeft" && col > 0) {
+    } else if (e.key === "ArrowLeft" && col > 0) {
       e.preventDefault()
       focusCell(row, col - 1)
       return
-    }
-
-    else if (e.key === "ArrowRight" && col < data.length - 1) {
+    } else if (e.key === "ArrowRight" && col < data.length - 1) {
       e.preventDefault()
       focusCell(row, col + 1)
-    }
-
-    else if (e.key === "Enter") {
+    } else if (e.key === "Enter") {
       e.preventDefault()
 
       handleEnterOrSubmit()
     }
+  }
+
+  const handleAnimationTitle = () => {
+    if (!splitTitleRef.current || isTitleAnimatingRef.current) return
+
+    isTitleAnimatingRef.current = true
+
+    splitTitleRef.current.chars.forEach((char, index) => {
+      gsap.to(char, {
+        y: -10,
+        delay: index * 0.05,
+        yoyo: true,
+        repeat: 1,
+        overwrite: true,
+        onComplete: () => {
+          isTitleAnimatingRef.current = false
+        },
+        onInterrupt: () => {
+          isTitleAnimatingRef.current = false
+        },
+        ease: "power1.inOut",
+        duration: 0.3
+      })
+    })
   }
 
   const renderInput = () => {
@@ -273,19 +340,19 @@ function App() {
         inputs.push(
           <input
             key={col}
-            ref={el => {
+            ref={(el) => {
               if (!inputRefs.current[row]) {
                 inputRefs.current[row] = Array(data.length).fill(null)
               }
               inputRefs.current[row][col] = el
             }}
             value={board[row]?.[col] ?? ""}
-            onChange={e => handleChange(e, row, col)}
-            onKeyDown={e => handleKeyDown(e, row, col)}
+            onChange={(e) => handleChange(e, row, col)}
+            onKeyDown={(e) => handleKeyDown(e, row, col)}
             type="text"
             maxLength={1}
             disabled={row !== gameState.currTry}
-            className="w-12 h-12 mx-1 text-center text-2xl font-bold font-dot-gothic border-2 border-gray-300 rounded disabled:bg-gray-100 disabled:text-gray-400"
+            className="w-12 h-12 mx-1 text-center text-2xl font-bold border-2 border-gray-300 rounded disabled:bg-gray-100 disabled:text-gray-400"
           />
         )
       }
@@ -300,11 +367,32 @@ function App() {
   }
 
   return (
-    <div className="mx-8 grid place-content-center h-dvh">
-      <h1 className="text-9xl font-bold font-array-bold">SUAVEDLE</h1>
+    <div className="mx-8 grid place-content-center h-dvh relative font-dot-gothic">
+      
+      <div className="dialog-congrats absolute inset-0 grid place-content-center invisible">
+        <div className="congrats-box relative bg-black text-white max-w-sm rounded-lg after:absolute after:content-[''] after:bg-white after:h-22 after:w-13 after:left-0 after:top-0 after:rounded-br-lg before:absolute before:content-[''] before:bg-white before:h-22 before:w-13 before:right-0 before:top-0 before:rounded-bl-lg">
+          <div className="congrats-box-title">Felicidades</div>
+          <div className="congrats-box-content relative text-justify py-9 px-5"><span>{data?.word.toUpperCase()}</span> es lorem ipsum dolor sit amet consectetur adipisicing elit. Porro nostrum eveniet non odio nam! Molestias commodi, expedita dolorem temporibus, consequatur incidunt explicabo quam excepturi, rerum maxime officiis vitae tempora deserunt!</div>
+        </div>
+      </div>
+      
+      <h1
+        ref={titleRef}
+        onMouseEnter={handleAnimationTitle}
+        id="title"
+        className="text-9xl font-bold font-array-bold"
+      >
+        SUAVEDLE
+      </h1>
+      <p>{data?.word}</p>
       <div className="flex flex-col justify-center items-center gap-3">
         {renderInput()}
-        <button onClick={handleEnterOrSubmit} className="border font-bold font-dot-gothic py-2 px-4 rounded w-35 hover:bg-black hover:text-white transition-all cursor-crosshair active:scale-95 hover:scale-105">A la de Dios</button>
+        <button
+          onClick={handleEnterOrSubmit}
+          className="border font-bold py-2 px-4 rounded w-35 hover:bg-black hover:text-white transition-all cursor-crosshair active:scale-95 hover:scale-105"
+        >
+          A la de Dios
+        </button>
       </div>
     </div>
   )
